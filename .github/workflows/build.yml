@@ -44,17 +44,21 @@ jobs:
       - name: Build
         shell: bash
         working-directory: ${{ steps.src.outputs.dir }}
-        run: gradle build --no-daemon --stacktrace 2>&1 | tee build.log
+        run: |
+          set -o pipefail
+          gradle build --no-daemon 2>&1 | tee build.log
 
+      # Chỉ in các dòng lỗi biên dịch (Ten.java:123: error: ...) ra trang Summary cho dễ chụp
       - name: Loi (neu co)
         if: failure()
         shell: bash
         working-directory: ${{ steps.src.outputs.dir }}
         run: |
           {
-            echo '### Loi build'
+            echo '### Loi build (gui cac dong nay cho Claude)'
             echo '```'
-            grep -n -E "error:|FAILED|What went wrong|Could not|symbol:|location:" -A2 build.log | head -150
+            grep -E "\.java:[0-9]+: error:" -A3 build.log | head -80 || true
+            grep -E "What went wrong" -A6 build.log | head -20 || true
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -67,6 +71,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload jar
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: LanAnhClient-jar
